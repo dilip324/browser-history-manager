@@ -1,0 +1,260 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+struct History {
+    char url[100];
+    struct History *prev, *next;
+};
+
+struct History *head = NULL, *tail = NULL;
+struct History *current = NULL; // For navigation (forward/backward)
+
+// Function to create a new node with a given URL
+struct History* createNode(char *url) {
+    struct History* newNode = (struct History*)malloc(sizeof(struct History));
+    strcpy(newNode->url, url);
+    newNode->prev = newNode->next = NULL;
+    return newNode;
+}
+
+// Visit a new page (insert at end and move current to it)
+void visitPage(char *url) {
+    struct History* newNode = createNode(url);
+    if (!head) {
+        head = tail = current = newNode;
+    } else {
+        // If we are not at the end, remove all forward history after current
+        struct History *temp = current->next;
+        while (temp) {
+            struct History *toDelete = temp;
+            temp = temp->next;
+            free(toDelete);
+        }
+        current->next = NULL;
+        tail = current;
+
+        // Add new node at end
+        tail->next = newNode;
+        newNode->prev = tail;
+        tail = newNode;
+        current = newNode;
+    }
+    printf("Visited: %s\n", url);
+}
+
+// Delete a website (linear search to find node then delete)
+void deletePage(char *url) {
+    struct History *temp = head;
+    while (temp) {
+        if (strcmp(temp->url, url) == 0) {
+            // Adjust pointers
+            if (temp->prev)
+                temp->prev->next = temp->next;
+            else
+                head = temp->next;
+
+            if (temp->next)
+                temp->next->prev = temp->prev;
+            else
+                tail = temp->prev;
+
+            // Adjust current if needed
+            if (current == temp) {
+                if (temp->prev)
+                    current = temp->prev;
+                else
+                    current = temp->next;
+            }
+
+            free(temp);
+            printf("Deleted: %s\n", url);
+            return;
+        }
+        temp = temp->next;
+    }
+    printf("Website not found: %s\n", url);
+}
+
+// Display entire history
+void displayHistory() {
+    if (!head) {
+        printf("History is empty.\n");
+        return;
+    }
+    printf("Browser History:\n");
+    struct History *temp = head;
+    while (temp) {
+        if (temp == current)
+            printf("-> %s (current)\n", temp->url);
+        else
+            printf("   %s\n", temp->url);
+        temp = temp->next;
+    }
+}
+
+// Linear search
+struct History* searchLinear(char *url) {
+    struct History *temp = head;
+    while (temp) {
+        if (strcmp(temp->url, url) == 0)
+            return temp;
+        temp = temp->next;
+    }
+    return NULL;
+}
+
+// Bubble sort the doubly linked list alphabetically by URL
+void sortHistory() {
+    if (!head || !head->next) return; // nothing to sort
+
+    int swapped;
+    do {
+        swapped = 0;
+        struct History *temp = head;
+        while (temp->next) {
+            if (strcmp(temp->url, temp->next->url) > 0) {
+                // Swap URLs only (simpler than swapping nodes)
+                char buffer[100];
+                strcpy(buffer, temp->url);
+                strcpy(temp->url, temp->next->url);
+                strcpy(temp->next->url, buffer);
+                swapped = 1;
+            }
+            temp = temp->next;
+        }
+    } while (swapped);
+    printf("History sorted alphabetically.\n");
+}
+
+// Navigate forward
+void navigateForward() {
+    if (!current) {
+        printf("No current page.\n");
+        return;
+    }
+    if (current->next) {
+        current = current->next;
+        printf("Navigated forward to: %s\n", current->url);
+    } else {
+        printf("No forward history.\n");
+    }
+}
+
+// Navigate backward
+void navigateBackward() {
+    if (!current) {
+        printf("No current page.\n");
+        return;
+    }
+    if (current->prev) {
+        current = current->prev;
+        printf("Navigated backward to: %s\n", current->url);
+    } else {
+        printf("No backward history.\n");
+    }
+}
+
+// Clear entire history
+void clearHistory() {
+    struct History *temp = head;
+    while (temp) {
+        struct History *toDelete = temp;
+        temp = temp->next;
+        free(toDelete);
+    }
+    head = tail = current = NULL;
+    printf("All history cleared.\n");
+}
+
+// Main menu
+void menu() {
+    int choice;
+    char url[100];
+    struct History *found;
+
+    while (1) {
+        printf("\nBrowser History Manager\n");
+        printf("1. Visit New Website\n");
+        printf("2. Delete a Website\n");
+        printf("3. Display History\n");
+        printf("4. Search Website (Linear Search)\n");
+        printf("5. Sort History (Bubble Sort)\n");
+        printf("6. Navigate (Forward / Backward)\n");
+        printf("7. Clear All History\n");
+        printf("8. Exit\n");
+        printf("Enter your choice: ");
+        scanf("%d", &choice);
+        getchar(); // consume newline after number input
+
+        switch (choice) {
+            case 1:
+                printf("Enter URL to visit: ");
+                fgets(url, sizeof(url), stdin);
+                url[strcspn(url, "\n")] = 0; // remove newline
+                visitPage(url);
+                break;
+
+            case 2:
+                printf("Enter URL to delete: ");
+                fgets(url, sizeof(url), stdin);
+                url[strcspn(url, "\n")] = 0;
+                deletePage(url);
+                break;
+
+            case 3:
+                displayHistory();
+                break;
+
+            case 4:
+                printf("Enter URL to search: ");
+                fgets(url, sizeof(url), stdin);
+                url[strcspn(url, "\n")] = 0;
+                found = searchLinear(url);
+                if (found) {
+                    printf("Website found: %s\n", found->url);
+                } else {
+                    printf("Website not found.\n");
+                }
+                break;
+
+            case 5:
+                sortHistory();
+                break;
+
+            case 6:
+                printf("1. Forward\n2. Backward\nEnter choice: ");
+                int navChoice;
+                scanf("%d", &navChoice);
+                getchar();
+                if (navChoice == 1) navigateForward();
+                else if (navChoice == 2) navigateBackward();
+                else printf("Invalid navigation choice.\n");
+                break;
+
+            case 7:
+                clearHistory();
+                break;
+
+            case 8:
+                clearHistory();
+                printf("Exiting program.\n");
+                return;
+
+            default:
+                printf("Invalid choice. Please try again.\n");
+        }
+    }
+}
+
+int main() {
+    // Test with some initial URLs (optional)
+    visitPage("google.com");
+    visitPage("openai.com");
+    visitPage("github.com");
+    visitPage("stackoverflow.com");
+    visitPage("reddit.com");
+
+    menu();
+    return 0;
+}
